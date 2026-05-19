@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <iomanip>
 using namespace std;
 
 // Node untuk antrian cuti
@@ -44,7 +45,7 @@ int dequeue(Queue& q) {
 
 struct Aksi { //untuk menyimpan riwayat aksi cuti
     int nip;
-    string jenis;   // "ajukan" atau "selesai"
+    string jenis;   // saya buat "ajukan" untuk yang di antrian atau "selesai" untuk yang selesai cuti
     bool statusLama; //status cuti sebelum aksi (true = cuti, false = tidak cuti)
 };
 
@@ -52,22 +53,19 @@ struct NodeS { //node untuk stack riwayat aksi
     Aksi data;
     NodeS* next; 
 };
+NodeS* top = NULL; //top stack
 
-struct Stack { //stack untuk riwayat aksi
-    NodeS* top;
-};
-
-void push(Stack& s, Aksi a) { //tambah aksi ke stack
+void push(Aksi a) { //tambah aksi ke stack
     NodeS* baru  = new NodeS;   
     baru->data   = a;
-    baru->next   = s.top;
-    s.top        = baru;
+    baru->next   = top;
+    top        = baru;
 }
 
-Aksi pop(Stack& s) { //ambil aksi dari stack
-    NodeS* temp  = s.top;
-    Aksi a       = s.top->data;
-    s.top        = s.top->next;
+Aksi pop() { //ambil aksi dari stack
+    NodeS* temp  = top;
+    Aksi a       = top->data;
+    top        = top->next;
     delete temp;
     return a;
 }
@@ -81,19 +79,21 @@ struct Node { //node untuk data karyawan
     Node* kiri;
     Node* kanan;
 };
+
 Node* buatNode(int nip, string nama, string divisi) {
     Node* baru = new Node;
     baru->nip = nip; 
     baru->nama = nama;
     baru->divisi = divisi;
     baru->statusCuti = false;
-    baru->antrian.depan = NULL;
+    baru->antrian.depan = NULL; //inisialisasi antrian kosong nyambung ke struct Queue
     baru->antrian.belakang = NULL;
     baru->kiri = NULL;
     baru->kanan = NULL;
     return baru;
 }
-
+ 
+//tambsh karyawan
 Node* insert(Node* root, int nip, string nama, string divisi) {
     if (root == NULL) {
         return buatNode(nip, nama, divisi);
@@ -106,6 +106,7 @@ Node* insert(Node* root, int nip, string nama, string divisi) {
     return root;
 }
 
+//cari karyawan berdasarkan NIP
 Node* search(Node* root, int nip) {
     if (root == NULL || root->nip == nip) {
         return root;
@@ -116,16 +117,26 @@ Node* search(Node* root, int nip) {
     return search(root->kanan, nip);
 }
 
+//tampil semua karyawan
 void inorder(Node* root) {
     if (root == NULL) return;
     inorder(root->kiri);
-    cout << "\nNIP    : " << root->nip << endl;
-    cout << "Nama   : " << root->nama << endl;
-    cout << "Divisi : " << root->divisi << endl;
-    cout << "Status : " << (root->statusCuti ? "Cuti" : "Tidak Cuti") << endl;
-    cout << "--------------------------" << endl;
+
+    string status;
+    if (root->statusCuti == true) {
+        status = "Cuti";
+    } else {
+        status = "Tidak Cuti";
+    }
+    cout << left;
+    cout << "| " << setw(8)  << root->nip
+         << "| " << setw(20) << root->nama
+         << "| " << setw(15) << root->divisi
+         << "| " << setw(12) << status << "|" << endl;
+
     inorder(root->kanan);
 }
+//cari node dengan nilai kecil (untuk delete)
 Node* cariMin(Node* root) {
     while (root->kiri != NULL) {
         root = root->kiri;
@@ -161,12 +172,10 @@ Node* hapus(Node* root, int nip) {
 
 int main() {
     Node* root = NULL;
-    Stack riwayat; //stack untuk menyimpan riwayat aksi cuti
-    riwayat.top = NULL;
     int pilihan;
 
     do {
-        cout << "\n=============================" << endl;
+        cout << "=============================" << endl;
         cout << "   SISTEM MANAJEMEN CUTI    " << endl;
         cout << "=============================" << endl;
         cout << "1. Tambah Karyawan" << endl;
@@ -180,36 +189,47 @@ int main() {
         cout << "Pilihan: ";
         cin >> pilihan;
 
-        if (pilihan == 1) {
+        if (pilihan == 1) { //tambah karyawan
             int nip, jumlah; 
             string nama, divisi;
             cout << "Berapa karyawan yang ingin ditambahkan? "; 
 	        cin >> jumlah;
-	        cin.ignore();
 
-	for (int i = 0; i < jumlah; i++) {
-        cout << "\nKaryawan ke-" << (i + 1) << ":\n";
-            cout << "NIP    : "; cin >> nip;
-            if (search(root, nip) != NULL) {
-                cout << "[!] NIP sudah terdaftar! Karyawan tidak dapat ditambahkan.\n";
+            for (int i = 0; i < jumlah; i++) { //loop untuk tambah beberapa karyawan
+                cout << "\nKaryawan ke-" << (i + 1) << ":\n";
+                cout << "NIP    : "; cin >> nip;
+            if (search(root, nip) != NULL) { //cek duplikat NIP
+                cout << "NIP sudah terdaftar! Karyawan tidak dapat ditambahkan.\n";
+                continue;
+            } else if (nip < 0) { 
+                cout << "NIP tidak valid! Karyawan tidak dapat ditambahkan.\n";
                 continue;
             }
-            cout << "Nama   : "; cin.ignore(); getline(cin, nama);
-            cout << "Divisi : "; getline(cin, divisi);
-            root = insert(root, nip, nama, divisi);
-            cout << "Data karyawan berhasil ditambahkan" << endl;
+                cout << "Nama   : "; cin.ignore(); getline(cin, nama);
+                cout << "Divisi : "; getline(cin, divisi);
+                root = insert(root, nip, nama, divisi);
+                cout << "Data karyawan berhasil ditambahkan" << endl;
         }
     } 
 
-        else if (pilihan == 2) {
+        else if (pilihan == 2) { //tampil karyawan
             if (root == NULL) {
                 cout << "Belum ada data karyawan" << endl;
             } else {
+                    system("cls");
+                    cout << "==== Daftar Karyawan ====" << endl;
+                    cout << left;
+                    cout << "| " << setw(8)  << "NIP"
+                    << "| " << setw(20) << "Nama"
+                    << "| " << setw(15) << "Divisi"
+                    << "| " << setw(12) << "Status" << "|" << endl;
+                    cout << string(62, '-') << endl;
+
                 inorder(root);
             }
         }
 
-        else if (pilihan == 3) {
+        else if (pilihan == 3) { //ajukan cuti
             int nip; 
             cout << "NIP karyawan: "; 
             cin >> nip;
@@ -217,47 +237,49 @@ int main() {
                 cout << "NIP tidak valid!" << endl;
                 continue;
             }
-            Node* k = search(root, nip);
+            Node* k = search(root, nip); //untuk cari
             if (k == NULL) {
                 cout << "Karyawan tidak ditemukan!" << endl;
-            } else if (k->statusCuti == false) {
+            } else if (k->statusCuti == false) { //jika tidak sedang cuti
                 Aksi a = {nip, "ajukan", false};
-                push(riwayat, a);
+                push(a); //simpan aksi sebelum perubahan
                 k->statusCuti = true;
                 cout << "Pengajuan cuti berhasil" << endl;
-            } else {
+            } else { //jika sudah sedang cuti, masukin karyawan lain ke antrian
                 int antrian;
-                cout << "Karyawan sedang cuti, Masukkan NIP karyawan antrian: ";
+                cout << "Karyawan sedang cuti, \nMasukkan NIP karyawan lain ke antrian: ";
                 cin >> antrian;
                 if (search(root, antrian) == NULL) {
                     cout << "Karyawan antrian tidak ditemukan!" << endl;
                 } else {
-                    enqueue(k->antrian, antrian);
-                    cout << "Pengajuan cuti untuk NIP " << antrian << " masuk ke dalam antrian" << endl;
+                    enqueue(k->antrian, antrian); //masukin ke antrian cuti
+                    cout << "Pengajuan cuti untuk NIP " << antrian << " berhasil dikirim ke antrian" << endl;
                 } 
             }
         }
-        else if (pilihan == 4) {
+        else if (pilihan == 4) { //selesai cuti 
             int nip; 
             cout << "NIP karyawan: "; 
             cin >> nip;
             Node* k = search(root, nip);
+
             if (k == NULL) {
                 cout << "Karyawan tidak ditemukan!" << endl;
             } else if (!k->statusCuti) {
                 cout << "Karyawan tidak sedang cuti!" << endl;
             } else {
-                Aksi a = {nip, "selesai", true};
-                push(riwayat, a);
-                k->statusCuti = false;
+                Aksi a = {nip, "selesai", true}; //simpan aksi sebelum perubahan (status lama = true, karena sedang cuti)
+                push(a); //simpan aksi ke stack untuk menu undo
+                k->statusCuti = false; //ubah status cuti
                 cout << "Cuti berhasil diselesaikan" << endl;  
-                if (k->antrian.depan != NULL) {
-                    int nextNip = dequeue(k->antrian);
-                    Node* nextK = search(root, nextNip);
-                    if (nextK != NULL) {
-                        Aksi a2 = {nextNip, "ajukan", false};
-                        push(riwayat, a2);
-                        nextK->statusCuti = true;
+
+                if (k->antrian.depan != NULL) { //cek apakah ada antrian cuti
+                    int nextNip = dequeue(k->antrian); //ambil NIP berikutnya dari antrian
+                    Node* nextK = search(root, nextNip); //cari node karyawan berikutnya 
+                    if (nextK != NULL) { //pastikan karyawan berikutnya masih ada
+                        Aksi a2 = {nextNip, "ajukan", false}; //simpan aksi untuk pengajuan cuti berikutnya (status lama = false, karena belum cuti)
+                        push(a2); //simpan aksi ke stack untuk menu undo
+                        nextK->statusCuti = true; //ubah status cuti karyawan berikutnya
                         cout << "Pengajuan cuti untuk NIP " << nextNip << " berhasil diproses dari antrian" << endl;
                     }
                 }
@@ -276,13 +298,13 @@ int main() {
         }
 
         else if (pilihan == 6) {
-            if (riwayat.top == NULL) {
+            if (top == NULL) {
                 cout << "Tidak ada aksi untuk di-undo!" << endl;
             } else {
-                Aksi a = pop(riwayat);
-                Node* k = search(root, a.nip);
-                if (k != NULL) {
-                    if (a.jenis == "ajukan") {
+                Aksi a = pop(); //ambil aksi terakhir
+                Node* k = search(root, a.nip); //cari karyawan yang sudah terkait aksi
+                if (k != NULL) { //pastikan karyawan masih ada sebelum undo
+                    if (a.jenis == "ajukan") { 
                         k->statusCuti = a.statusLama;
                         cout << "Undo pengajuan cuti untuk NIP " << a.nip << " berhasil" << endl;
                     } else if (a.jenis == "selesai") {
@@ -300,12 +322,13 @@ int main() {
             Node* k = search(root, nip);
             if (k == NULL) {
                 cout << "Karyawan tidak ditemukan!" << endl;
-            } else if (k->antrian.depan == NULL) {
+            } else if (k->antrian.depan == NULL) { 
                 cout << "Antrian cuti kosong untuk NIP " << nip << endl;
-            } else {
+            } else { 
                 cout << "Antrian cuti untuk NIP " << nip << ": ";
-                NodeQ* temp = k->antrian.depan;
-                while (temp != NULL) {
+                
+                NodeQ* temp = k->antrian.depan; //variabel sementara untuk cari antrian cuti
+                while (temp != NULL) { 
                     cout << temp->nip << " ";
                     temp = temp->next;
                 }
